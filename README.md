@@ -18,7 +18,7 @@ This project is an implementation of the Minishell in Java. The solution aims to
 
 the project contains the following files:
 
-- [Main.c](src/Main.java): The main file.
+- [Main.java](src/Main.java): The main file.
 - [SimpleShell.java](src/SimpleShell.java): The file that contains all the methods of the project.
 - [CommandHistory.java](src/CommandHistory.java): The file that handles the history of commands.
 - [Makefile](src/Makefile): The Makefile used to compile the project.
