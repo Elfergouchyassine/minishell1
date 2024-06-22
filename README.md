@@ -53,17 +53,17 @@ To compile the program use the command ```make``` the compiler will recognize th
 ```bash
 make
 ```
-![img.png](src/img.png)
+![img.png](imgs/img.png)
 
 To run the program use the command ```make run```.
 
 ```bash
 make run
 ```
-![img_1.png](src/img_1.png)
+![img_1.png](imgs/img_1.png)
 
 When you finish using the command-line interpreter, you will need to clean all the files that had been used with ```make clean``` :
-![img_2.png](src/img_2.png)
+![img_2.png](imgs/img_2.png)
 
 > **⚠ Important:**
 > The Makefile provided in this repository is designed to only work on Unix-like operating systems.
