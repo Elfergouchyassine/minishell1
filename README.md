@@ -63,6 +63,7 @@ make run
 ![img_1.png](imgs/img_1.png)
 
 When you finish using the command-line interpreter, you will need to clean all the files that had been used with ```make clean``` :
+
 ![img_2.png](imgs/img_2.png)
 
 > **⚠ Important:**
