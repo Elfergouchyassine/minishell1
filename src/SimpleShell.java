@@ -1,9 +1,9 @@
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
-import java.io.*;  //Pour les entrée/sortie
-import java.nio.file.*; // Pour les fichiers NIO
-import java.util.ArrayList; // listes dynamiques
+import java.io.*;
+import java.nio.file.*;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -27,28 +27,26 @@ public class SimpleShell extends JFrame {
 
         commandField = new JTextField();
 
-        //traitement des inputs de l'utilisateur dans le champs de l'interface
         commandField.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                String line = commandField.getText(); //recuperation du texte
-                if (!line.equals("")) { // si le texte est non vide
+                String line = commandField.getText();
+                if (!line.equals("")) {
                     processCommand(line);
-                    commandField.setText(""); // effacement de texte
+                    commandField.setText("");
                 }
             }
         });
 
-        // KeyListener pour les fleches vers le haut et vers le bas
         commandField.addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
-                if (e.getKeyCode() == KeyEvent.VK_UP) { //lorque la fleche haut est pressée
+                if (e.getKeyCode() == KeyEvent.VK_UP) {
                     String previousCommand = ch.get_previous_command();
                     if (previousCommand != null) {
                         commandField.setText(previousCommand);
                     }
-                } else if (e.getKeyCode() == KeyEvent.VK_DOWN) { //lorque la fleche bas est pressée
+                } else if (e.getKeyCode() == KeyEvent.VK_DOWN) {
                     String nextCommand = ch.get_next_command();
                     if (nextCommand != null) {
                         commandField.setText(nextCommand);
@@ -57,13 +55,12 @@ public class SimpleShell extends JFrame {
             }
         });
 
-        //bouton d'execution des commandes a travers la methode processCommand
         JButton executeButton = new JButton("Execute");
         executeButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 String line = commandField.getText();
-                if (!line.equals("")) { //non vide
+                if (!line.equals("")) {
                     processCommand(line);
                     commandField.setText("");
                 }
@@ -80,27 +77,27 @@ public class SimpleShell extends JFrame {
         updatePrompt();
     }
 
-    //dans l'output, le chemin actuel est mentionné pour faire pareille du terminal en linux
     private void updatePrompt() {
         outputArea.append(current_path + "$ ");
     }
 
-    //la methode qui fait executer tout input de l'utilisateur
     private void processCommand(String line) {
         outputArea.append(line + "\n");
-        if (line.equals("exit") || line.equals("quit")) { // si l'utilisateur souhaite de sortir
+        if (line.equals("exit") || line.equals("quit")) {
             System.exit(0);
         }
 
-        ch.add_command(line); //ajouter toute commande dans l'historique des commandes
+        ch.add_command(line);
         ArrayList<String> command_parts = new ArrayList<>();
         String main_operation = prepare_command(line, command_parts);
 
         try {
-            if (line.contains("|")) {
-                handlePipelining(line); //methode de pipelining
+            if (line.startsWith("./") && line.endsWith(".sh")) {
+                executeScriptFile(line.substring(2)); // Execute script file
+            } else if (line.contains("|")) {
+                handlePipelining(line);
             } else if (line.contains(">") || line.contains(">>") || line.contains("<")) {
-                handleRedirection(line); //methode de redirection
+                handleRedirection(line);
             } else {
                 executeCommand(line, command_parts, main_operation);
             }
@@ -110,19 +107,35 @@ public class SimpleShell extends JFrame {
 
         updatePrompt();
     }
+    private void executeScriptFile(String fileName) throws IOException {
+        File scriptFile = new File(dir, fileName);
+        if (!scriptFile.exists() || !scriptFile.isFile() || !fileName.endsWith(".sh")) {
+            outputArea.append("Error: Script file does not exist or is not a valid .sh file\n");
+            return;
+        }
+
+        BufferedReader reader = new BufferedReader(new FileReader(scriptFile));
+        String line;
+        while ((line = reader.readLine()) != null) {
+            processCommand(line);
+        }
+        reader.close();
+    }
+
+
 
     private void executeCommand(String line, ArrayList<String> command_parts, String main_operation) throws IOException {
-        if (main_operation.equals("history")) { //afficher l'historique des commandes
+        if (main_operation.equals("history")) {
             outputArea.append(ch.get_history() + "\n");
-        } else if (main_operation.equals("cd")) { //implementation de la commande "cd"
+        } else if (main_operation.equals("cd")) {
             if (command_parts.size() < 4) {
                 outputArea.append("invalid cd command! hint: you need to provide new directory\n");
                 return;
             }
 
-            String new_path = command_parts.get(3).replaceAll("^\"|\"$", ""); //retirer les guillemets du chemin
-            if (new_path.equals("~") || new_path.equals("$HOME")) { //retour au home user
-                new_path = home_path; //remplacer le chemin courant par le chemin de home
+            String new_path = command_parts.get(3).replaceAll("^\"|\"$", "");
+            if (new_path.equals("~") || new_path.equals("$HOME")) {
+                new_path = home_path;
             }
 
             Path p = Paths.get(new_path);
@@ -132,16 +145,14 @@ public class SimpleShell extends JFrame {
             else
                 new_dir = new File(dir, new_path);
 
-            if (!new_dir.exists() || !new_dir.isDirectory()) { //si le repertoire n'existe pas ou pas un repertoire
+            if (!new_dir.exists() || !new_dir.isDirectory()) {
                 outputArea.append("Error: invalid directory requested\n");
             } else {
                 dir = new_dir;
                 current_path = dir.getAbsolutePath();
             }
-            //la commande 'ls'
         } else if (main_operation.equals("ls")) {
             listDirectory(dir);
-            //la commmande 'cat'
         } else if (main_operation.equals("cat")) {
             if (command_parts.size() < 4) {
                 outputArea.append("invalid cat command! hint: you need to provide a file name\n");
@@ -151,17 +162,16 @@ public class SimpleShell extends JFrame {
             String file_name = command_parts.get(3);
             File file = new File(dir, file_name);
 
-            if (!file.exists() || !file.isFile()) { //si le fichier texte n'existe pas ou pas un fichier texte
+            if (!file.exists() || !file.isFile()) {
                 outputArea.append("Error: file does not exist\n");
             } else {
-                BufferedReader reader = new BufferedReader(new FileReader(file));//pour lire chaque ligne
+                BufferedReader reader = new BufferedReader(new FileReader(file));
                 String line_content;
                 while ((line_content = reader.readLine()) != null) {
-                    outputArea.append(line_content + "\n"); //affichage de texte
+                    outputArea.append(line_content + "\n");
                 }
                 reader.close();
             }
-            //commande 'grep'
         } else if (main_operation.equals("grep")) {
             if (command_parts.size() < 5) {
                 outputArea.append("invalid grep command! hint: you need to provide a word and a file name\n");
@@ -182,7 +192,6 @@ public class SimpleShell extends JFrame {
                 }
                 reader.close();
             }
-            //la commande 'touch'
         } else if (main_operation.equals("touch")) {
             if (command_parts.size() < 4) {
                 outputArea.append("invalid touch command! hint: you need to provide a file name\n");
@@ -191,16 +200,13 @@ public class SimpleShell extends JFrame {
 
             String file_name = command_parts.get(3);
             File file = new File(dir, file_name);
-            //les tests sur le fichier a créer
             if (file.exists()) {
                 outputArea.append("Error: file already exists\n");
             } else {
                 file.createNewFile();
                 outputArea.append("File " + file_name + " created successfully\n");
             }
-        }
-        //commande 'rm'
-        else if (main_operation.equals("rm")) {
+        } else if (main_operation.equals("rm")) {
             if (command_parts.size() < 4) {
                 outputArea.append("invalid rm command! hint: you need to provide a file name\n");
                 return;
@@ -218,9 +224,7 @@ public class SimpleShell extends JFrame {
                     outputArea.append("Error: failed to delete file\n");
                 }
             }
-
-        }
-        else {
+        } else {
             ProcessBuilder pb = new ProcessBuilder(command_parts);
             pb.directory(dir);
             Process process = pb.start();
@@ -263,38 +267,73 @@ public class SimpleShell extends JFrame {
     private void executeCommandWithOutputRedirection(String commandPart, String filePart, boolean append) throws IOException {
         File outputFile = new File(dir, filePart);
         ArrayList<String> command_parts = new ArrayList<>();
-        prepare_command(commandPart, command_parts);
+        String main_operation = prepare_command(commandPart, command_parts);
 
-        ProcessBuilder pb = new ProcessBuilder(command_parts);
-        pb.directory(dir);
-        if (append) {
-            pb.redirectOutput(ProcessBuilder.Redirect.appendTo(outputFile));
+        if (main_operation.equals("cat") && command_parts.size() > 3) {
+            String inputFileName = command_parts.get(3);
+            File inputFile = new File(dir, inputFileName);
+
+            if (!inputFile.exists() || !inputFile.isFile()) {
+                outputArea.append("Error: input file does not exist\n");
+                return;
+            }
+
+            BufferedReader reader = new BufferedReader(new FileReader(inputFile));
+            BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile, append));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                writer.write(line);
+                writer.newLine();
+            }
+            reader.close();
+            writer.close();
         } else {
-            pb.redirectOutput(ProcessBuilder.Redirect.to(outputFile));
-        }
-        Process process = pb.start();
-        try {
-            process.waitFor();
-        } catch (InterruptedException e) {
-            outputArea.append("Error: " + e.getMessage() + "\n");
+            ProcessBuilder pb = new ProcessBuilder(command_parts);
+            pb.directory(dir);
+            Process process = pb.start();
+
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile, append));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                writer.write(line);
+                writer.newLine();
+            }
+            reader.close();
+            writer.close();
         }
     }
 
     private void executeCommandWithInputRedirection(String commandPart, String filePart) throws IOException {
         File inputFile = new File(dir, filePart);
+        if (!inputFile.exists() || !inputFile.isFile()) {
+            outputArea.append("Error: input file does not exist\n");
+            return;
+        }
+
+        BufferedReader reader = new BufferedReader(new FileReader(inputFile));
         ArrayList<String> command_parts = new ArrayList<>();
-        prepare_command(commandPart, command_parts);
+        String main_operation = prepare_command(commandPart, command_parts);
 
         ProcessBuilder pb = new ProcessBuilder(command_parts);
         pb.directory(dir);
-        pb.redirectInput(ProcessBuilder.Redirect.from(inputFile));
         Process process = pb.start();
+
+        BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(process.getOutputStream()));
+        String line;
+        while ((line = reader.readLine()) != null) {
+            writer.write(line);
+            writer.newLine();
+        }
+        reader.close();
+        writer.close();
+
         InputStream is = process.getInputStream();
         InputStreamReader isr = new InputStreamReader(is);
         BufferedReader br = new BufferedReader(isr);
-        String ln;
-        while ((ln = br.readLine()) != null)
-            outputArea.append(ln + "\n");
+        while ((line = br.readLine()) != null) {
+            outputArea.append(line + "\n");
+        }
         br.close();
     }
 
@@ -317,31 +356,31 @@ public class SimpleShell extends JFrame {
 
         String word = command2_parts.get(3);
 
-        ProcessBuilder pb1 = new ProcessBuilder(command1_parts);
-        pb1.directory(dir);
-        Process process1 = pb1.start();
+        if (command1_parts.get(2).equals("cat") && command1_parts.size() > 3) {
+            String file_name = command1_parts.get(3);
+            File file = new File(dir, file_name);
 
-        BufferedReader reader1 = new BufferedReader(new InputStreamReader(process1.getInputStream()));
-        List<String> intermediateOutput = new ArrayList<>();
-        String ln;
-        while ((ln = reader1.readLine()) != null) {
-            intermediateOutput.add(ln);
-        }
-        reader1.close();
+            if (!file.exists() || !file.isFile()) {
+                outputArea.append("Error: input file does not exist\n");
+                return;
+            }
 
-        try {
-            process1.waitFor();
-        } catch (InterruptedException e) {
-            outputArea.append("Error: " + e.getMessage() + "\n");
-        }
-
-        for (String lineContent : intermediateOutput) {
-            outputArea.append(highlightWord(lineContent, word) + "\n");
+            BufferedReader reader = new BufferedReader(new FileReader(file));
+            String line_content;
+            while ((line_content = reader.readLine()) != null) {
+                if (line_content.contains(word)) {
+                    outputArea.append(highlightWord(line_content, word) + "\n");
+                }
+            }
+            reader.close();
+        } else {
+            outputArea.append("Error: Only 'cat' command is supported as the first command in a pipeline.\n");
         }
     }
 
+
     private String prepare_command(String command_line, ArrayList<String> str_list) {
-        String[] str_arr = command_line.split(" ");
+        String[] str_arr = command_line.split(" "); // parsing
         str_list.add("cmd");
         str_list.add("/c");
         boolean quotation = false;
@@ -349,8 +388,9 @@ public class SimpleShell extends JFrame {
             if (quotation) {
                 int last_index = str_list.size() - 1;
                 str_list.set(last_index, str_list.get(last_index) + " " + str);
-            } else
+            } else {
                 str_list.add(str);
+            }
             if (str.startsWith("\""))
                 quotation = true;
             if (str.endsWith("\""))
@@ -368,7 +408,6 @@ public class SimpleShell extends JFrame {
         }
     }
 
-    //methode utilisé dans "grep" pour extraire un mot d'une ligne (librairie regex.pattern&matcher)
     private String highlightWord(String line, String word) {
         Pattern pattern = Pattern.compile(Pattern.quote(word), Pattern.CASE_INSENSITIVE);
         Matcher matcher = pattern.matcher(line);
